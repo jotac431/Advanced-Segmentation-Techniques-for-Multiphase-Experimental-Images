@@ -13,4 +13,4 @@ SAM 2:
 		- The first time you run a deep learning model like SAM-2, PyTorch and CUDA may need to compile and optimize the GPU kernels.
 		- This can take a long time (hours in some cases), especially if it’s the first time you're running it on your GPU.
 		- Once compiled, these optimized kernels are cached, making future runs significantly faster.
-	- The video prediction had better results, being able to follow correctly the selected bubble.
+	- The video prediction had better results, being able to follow correctly the selected bubble, but these results can be misleading because the video using and the frame images had better indentifiable bubbles, the bubbles being bigger and constrasted well with background.
