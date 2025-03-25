@@ -41,7 +41,7 @@
 
 ## Results and Insights
 - **Video segmentation provided better results** compared to single image segmentation.
-- **Bubbles were accurately tracked** across frames in the video segmentation process.
+- **Bubbles were accurately tracked** across frames in the video segmentation process, but these results can be misleading because the video used and the frame images had better identifiable bubbles, with the bubbles being bigger and contrasting well with the background.
 - Performance improvements observed with **subsequent runs** due to **model caching** and **GPU optimization**.
 
 ---
