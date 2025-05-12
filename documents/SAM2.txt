@@ -14,3 +14,120 @@ SAM 2:
 		- This can take a long time (hours in some cases), especially if it’s the first time you're running it on your GPU.
 		- Once compiled, these optimized kernels are cached, making future runs significantly faster.
 	- The video prediction had better results, being able to follow correctly the selected bubble, but these results can be misleading because the video using and the frame images had better indentifiable bubbles, the bubbles being bigger and constrasted well with background.
+	- It was decided to wait for an upgrade of the setup so this process can be faster.
+
+	- Trainning SAM 2:
+	- It was needed to create a different conda environment and install the necesary dependencies for SAM 2 trainning.
+	- First was decided to train SAM 2 using MOSE dataset, which had about 20 GBs of images. The acquired dataset had metadata files which ended with '._*', probably created by MacOS that needed to be deleted in order to start the training, otherwise it throwed an error.
+	- After that fix, it was realised that the configurations needed to start the trainning needed to be adjusted so that a 2060 RTX 8GB could be able to run:
+		- Instead of running with 8 GPUs, the pc used just have 1 available, so it was changed;
+		- Initially it had 10 workers, and it was changed to 8;
+		- After the changes, the train was still not able to run, so the size of the images was decreased with the help of a script.
+		- There was a need to change some configurations on the code to being able to run.
+		- After some changes, the model sam2.1_hiera_base_plus.pt was able to train, saving the retrained model to another path. It was choosen to train only 2 epochs for this first experiment.
+		- Train Stats: 
+{"Losses/train_all_loss": 5.433111148870933, "Losses/train_all_loss_mask": 0.06000992083447879, "Losses/train_all_loss_dice": 3.34929156734521, "Losses/train_all_loss_iou": 0.8832383877693539, "Losses/train_all_loss_class": 0.00038280269219983853, "Losses/train_all_core_loss": 5.433111148870933, "Trainer/where": 0.49983410749834106, "Trainer/epoch": 0, "Trainer/steps_train": 3014}
+{"Losses/train_all_loss": 4.941373555210939, "Losses/train_all_loss_mask": 0.053238480442063994, "Losses/train_all_loss_dice": 3.0783527595520654, "Losses/train_all_loss_iou": 0.7982217768366636, "Losses/train_all_loss_class": 2.9433205870214882e-05, "Losses/train_all_core_loss": 4.941373555210939, "Trainer/where": 0.999834107498341, "Trainer/epoch": 1, "Trainer/steps_train": 6028}
+		- To be able to extract the newly trainned model, it was needed to change a variable in the configuration with the path to where the new model configs, logs, and model were going.
+
+	- Started Multiphase Dataset Annotation phase:
+	- Setup of Label Studio
+	- It was followed the guid of https://github.com/HumanSignal/label-studio-ml-backend/tree/master
+	- Then it was chosen to do preannotation with ML using SAM2, following another guide https://github.com/HumanSignal/label-studio-ml-backend/tree/master/label_studio_ml/examples/segment_anything_2_image
+	- It was needed to configure and setup a backend host for the Ml model to operate and predict, and another host for the LabelStudio Interface and annotation environment.
+	- It was found a problem with the preannotation, where the model was not responding to inputs of the annotation interface, but after debugs and tests, it was able to overcome this osbtacle.
+	- The annotation works as follows:
+		- Select Auto-Detect and enable Auto-Annotation and Auto-Accept Suggestion
+		- Select RectangleLabel - after trying also with KeyPointLabel, it was concluded that the prediction from a RectangleLabel was more accurate - and annotate each bubble of each image
+	- To export the annotations, various options are given, such as YOLO and COCO format, but with this type of annotations it was not compatible, being the txt exported files empty.
+	- SAM2 expects 1 image (png) and 1 respective mask image (png) with the same name. But by exporting with Brush Labels to PNG it provides each annotation of individual bubble in each png file, and also does not refer to the name of the source image, only the id of the task. In other hand JSON file associates the ID of the task with the image name, which has a pattern were the name of the image in label studio ends with the real image name, for example, for "49df7abe-00001.jpg" the name of the source image is "00001.jpg". It was also needed to merge all the masks respective of an image into a single png. So it was opted with the following solution:
+		- Export as JSON;
+		- Export as Brush Labels to PNG;
+		- Developed a python script "convert.ipynb" which does the following:
+			- Load the JSON export.
+			- Parse each task to find the original image filename (e.g. 00001.jpg).
+			- Group all mask PNGs (task-<id>*.png) for each image.
+			- Merge those masks into a single mask (with label values preserved).
+			- Save the merged mask using the original image name (e.g. 00001.png) into Annotations_merged/.
+		- (Show an example of the final mask image)
+	- The final result gave the structure as: folder Images - with source images, folder Annotations_merged - with image respective mask.
+	
+	- Different datasets ones with multiphase bubble images and other with bubly flow images, was annotated. (Show image examples)
+	- To convert all available multiphase video datasets into frames, it was created a shell script "extract_frames.sh" that iterates every sub folder in a directory, and converts every ".avi" file into frames to a new path, but it keeps the structure of the source dataset directory. Setbacks were found using ffmpeg, since it was having problems iterating the paths recursively, so it was opted to change the approach of converting the video to frames, and it was created the python script "extract_frames.py" which used CV2 library, and extracted 1 frame per second of video. 
+	- !!!Explain what was done in labelstudio for the annotation process (see last google chatGPT labelstudio prompt, talk about how is MOSE dataset structured for SAM2 - object tracking, multiple object tracking in the same image with different label colors,...)
+	- To comply with MOSE dataset example and train in SAM2, the "convert.ipynb" script was changed, and it was created a convert_colored.ipynb" - this new script does the same as the older, but it also parses the annotation id from the json export, and groups the annotations by task id and annotation id. Also since the previous masks are all black and white, it was pretended to color the white part of the mask to the respective annotation label (show colored mask image example), so it is also implemented in the script. The end result is a grouping for each video - the struct becomes souce images -> Images/video1/*.png and masks-> AnnotationColored/video1/*.png - the images inside each video folder contains masks for different bubbles (each bubble with a different color, until 5 different bubbles) and through the frames of the folder each bubble with the different color is tracked.
+	- The first annotation proccess were 3 videos, with 60 images in total and each image labeled with 3 to 5 different bubbles.
+	
+	- SAM2 - Experiment 1:
+📊 Experiment Report: Training SAM2 on a Minimal Dataset
+🧪 Training Setup
+Parameter	Value
+Model	SAM2 (Hiera Base+)
+Pretrained Checkpoint	sam2.1_hiera_base_plus.pt
+Input Resolution	256×256 (due to GPU limits)
+Train Batch Size	1
+Frames per Sample	10
+Max Objects per Sample	3
+Base Learning Rate	5e-6
+Vision Encoder LR	3e-6
+Epochs	10
+Phases per Epoch	1
+Data Loader Workers	8
+Samples in Dataset	3 (very limited)
+
+📋 Losses per Epoch
+Epoch	Total Loss	Mask Loss	Dice Loss	IoU Loss	Class Loss
+0	0.6464	0.0062	0.1751	0.1920	0.1555
+1	0.6137	0.0003	0.0241	0.0132	0.5706
+2	0.1003	0.0004	0.0393	0.0328	0.0197
+3	0.0031	0.0000	0.0000	0.0000	0.0031
+4	6.2204	0.0725	2.5847	0.4475	1.7377
+5	2.5428	0.0182	1.4507	0.7088	0.0201
+6	2.2475	0.0063	0.8674	0.2058	1.0477
+7	0.5301	0.0003	0.0231	0.0142	0.4870
+8	4.8551	0.0271	2.3609	1.1307	0.8206
+9	9.8234	0.3174	1.6086	0.7362	1.1308
+
+🔍 Observations
+Early Epochs (0–3):
+
+Rapid convergence.
+
+Losses approach zero by Epoch 3, indicating memorization of the tiny dataset.
+
+Very low Dice and IoU loss suggest near-perfect segmentation, likely overfitting.
+
+Later Epochs (4–9):
+
+Significant instability, with total loss peaking at 9.82 in Epoch 9.
+
+Large fluctuations in dice, iou, and class losses, signaling potential overfitting and high sensitivity to specific samples.
+
+🧠 Interpretation
+With only 3 samples and a batch size of 1, the model quickly overfits.
+
+The sharp spikes suggest the model's loss landscape is volatile — likely due to:
+
+The small dataset's lack of variation.
+
+High gradient variance due to batch size = 1.
+
+No regularization or validation feedback to stabilize training.
+
+Losses like Dice and IoU spiking are especially concerning for segmentation consistency.
+
+📌 Next Steps
+Visualize predictions at various epochs to correlate loss trends with mask quality.
+
+Use augmentation to introduce synthetic diversity.
+
+Consider freezing vision layers or using fewer trainable parameters.
+
+Introduce validation and early stopping to reduce instability.
+
+
+
+
+
+
+Ver Mask R CNN -> mask_rcnn_X_101_32x8d_FPN_3x
