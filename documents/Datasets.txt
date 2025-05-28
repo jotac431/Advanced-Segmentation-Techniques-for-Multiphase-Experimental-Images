@@ -1,0 +1,4 @@
+https://rodare.hzdr.de/record/2811
+Software - 3D detection and tracking of deformable bubbles in swarms with the aid of deep learning models - Hessenkemper:
+A new semi-artificial dataset of multi-view bubbly flow measurements was created to validate 3D tracking approaches and serve as ground truth for training deep learning models. This dataset contains artificial sequences including the ground truth information and can be accessed under (Hessenkemper et al., 2024a). The corresponding data publication has the DOI http://dx.doi.org/10.14278/rodare.2809. The associated 3D tracking code is also available under (Hessenkemper et al., 2024b) with DOI http://dx.doi.org/10.14278/rodare.2811. This artificial data was created by extracting single bubble trajectories recorded with one camera and stacking multiple trajectories on top of each other in an empty image sequence, following a previous strategy.
+
