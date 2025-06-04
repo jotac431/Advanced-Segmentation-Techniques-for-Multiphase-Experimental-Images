@@ -1,0 +1,7 @@
+- Started investigating on how to build a pipeline for train and test different models, and followed this pythorch documentation:
+https://docs.pytorch.org/tutorials/intermediate/torchvision_tutorial.html#putting-everything-together
+
+
+Setup:
+
+- To setup, there was a need to build a new environment with conda to install all necessary libraries such as torchvision and pycocotools. It was also download to a specific directory all necessary python scripts necessary to run the pipeline. Initially there was a problem with pycocotools instalation, and that was the reason to create a isolated environment in conda, since python 3.12 on windows was not recognising pycocotools library.

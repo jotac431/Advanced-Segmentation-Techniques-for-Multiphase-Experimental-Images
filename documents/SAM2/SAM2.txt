@@ -130,4 +130,16 @@ Introduce validation and early stopping to reduce instability.
 
 
 
+	- After getting the checkpoint model, tested for image predictor with good results (show image)
+	- To test for video predictor it was needed to create a specific config yaml file to be able to run the script.
+	- Since a weeker checkpoint (sam2.1_hiera_base_plus.pt) was used to train a new model, the video propagation in the script was a lot faster, only taking 27 seconds to propagate 493 frames.
+	- The results showed that even with a weeker model, it was able to correctly segment the bubble through the video frames and even improved the tracking when the bubble divided itself into two, following the 2 divided bubbles during more frames, while the previous model choosed one of them to track right after the division (show image).
+
+- !! Falar sobre a importância de uma boa anotação, e explicar que é a qualidade da anotação que vai influenciar o quão bem o modelo vai treinar e os seus resultados.
+
+
+
+
+Usar metrica: MP50
+
 TODO: Ver Mask R CNN -> mask_rcnn_X_101_32x8d_FPN_3x
