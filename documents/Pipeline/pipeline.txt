@@ -5,3 +5,51 @@ https://docs.pytorch.org/tutorials/intermediate/torchvision_tutorial.html#puttin
 Setup:
 
 - To setup, there was a need to build a new environment with conda to install all necessary libraries such as torchvision and pycocotools. It was also download to a specific directory all necessary python scripts necessary to run the pipeline. Initially there was a problem with pycocotools instalation, and that was the reason to create a isolated environment in conda, since python 3.12 on windows was not recognising pycocotools library.
+- Tested first with a small dataset of 18 images of previously annotated multiphase images with brush labels to check if everything could run and to see the flow and how the process worked. Used also a maskrcnn_resnet50_fpn to test with default weights. Developed a Dataset Class to store the dataset, a get instance model function, the trainning loop and then a testing section.
+
+Development:
+
+- Reused part of the python code from https://docs.pytorch.org/tutorials/intermediate/torchvision_tutorial.html#putting-everything-together
+
+Plan:
+See PDF "Instance Segmentation Pipeline for Gas Bubble Multiphase Images (PyTorch).pdf" in this same directory
+
+Used Dataset BubANN_GAN: https://universe.roboflow.com/university-project-yi5xg/bubann_gan/dataset/1?queryText=&pageSize=50&startingIndex=0&browseQuery=true
+citation: 
+@misc{
+                            bubann_gan_dataset,
+                            title = { BubANN_GAN Dataset },
+                            type = { Open Source Dataset },
+                            author = { University Project },
+                            howpublished = { \url{ https://universe.roboflow.com/university-project-yi5xg/bubann_gan } },
+                            url = { https://universe.roboflow.com/university-project-yi5xg/bubann_gan },
+                            journal = { Roboflow Universe },
+                            publisher = { Roboflow },
+                            year = { 2024 },
+                            month = { mar },
+                            note = { visited on 2025-06-04 },
+                            }
+
+- Steps:
+	- Export dataset as JSON COCO Segmentation format - 1049 Train Images, 300 Validation Images, 150 Test Images
+	- Dataset File Structure:
+BubANN_GAN.v1i.coco-segmentation/
+│
+├── train/ 
+│   ├──_annotations.coco.json
+│   ├── BubGAN_0002_jpg.rf.1.jpg
+│   ├── BubGAN_0032_jpg.rf.2.jpg
+│   └── ...
+├── test/ 
+│   ├── _annotations.coco.json
+│   ├── BubGAN_0002_jpg.rf.3.jpg
+│   ├── BubGAN_0032_jpg.rf.4.jpg
+│   └── ...
+├── valid/ 
+│   ├── _annotations.coco.json
+│   ├── BubGAN_0002_jpg.rf.5.jpg
+│   ├── BubGAN_0032_jpg.rf.6.jpg
+│   └── …
+	
+	- Changed Dataset class, calling it COCOSegmentationDataset, and to be able to support the structure proposed (the images and the annotation json file)
+	- 
