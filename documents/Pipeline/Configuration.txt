@@ -1,0 +1,96 @@
+Batch Size
+Definition: Number of samples processed before the model is updated.
+
+If batch_size = 2, the model will:
+Take 2 images.
+Run them through the model.
+Compute the loss.
+Update weights using the average loss from those 2 images.
+
+✅ Bigger batch size:
+Pros: More stable gradients, better GPU utilization.
+Cons: Uses more GPU memory, can require gradient accumulation if memory is tight.
+
+✅ Smaller batch size:
+Pros: Lower memory usage, useful if GPU memory is limited.
+Cons: Noisier gradients, slower convergence.
+➡️ Rule of thumb: Start small (e.g., 2–8) and increase only if you have free GPU memory.
+
+
+
+
+⚙️ Num Workers
+Definition: Number of subprocesses used by the DataLoader to load data in parallel.
+Default is 0 (loads data in the main process, slowest).
+If num_workers = 4, four parallel Python workers load data while your GPU trains the model.
+
+✅ More workers:
+Pros: Faster data loading, especially with many small files or heavy image transforms.
+Cons: Too many workers can cause RAM overload or OS-level slowdowns (especially on Windows).
+
+➡️ Rule of thumb:
+
+On Linux/macOS: Set it to number of CPU cores or (CPU cores // 2)
+On Windows: Start with 0 or 2, Windows multiprocessing can be tricky
+
+
+
+🧪 Example Setup for You:
+If your machine has:
+8 CPU cores
+8–16 GB of RAM
+8 GB GPU
+
+Then you could set:
+train:
+  batch_size: 2 to 4
+  num_workers: 4
+
+“The optimal batch size is the largest batch that fits in memory”
+— PyTorch Forum Reference
+
+“num_workers > 0 enables multi-process data loading. Best number depends on CPU cores and memory.”
+— PyTorch Dataloader Docs
+
+
+
+
+Other configs for dataloader:
+
+🔁 shuffle
+Type: bool (True or False)
+Purpose: Randomize the order of samples in each epoch.
+
+✅ Why it's useful:
+Prevents the model from learning the order of data (helps generalization).
+
+Especially important for training, not needed for validation or testing.
+
+🔧 Example:
+shuffle=True  # Good for training
+shuffle=False # Use for validation/test to keep consistent evaluation
+
+
+
+📌 pin_memory
+Type: bool
+Purpose: Makes data transfer from CPU to GPU faster.
+
+✅ When to use:
+Use pin_memory=True if you’re training on a GPU (which you are).
+
+“Pinned” memory (a.k.a. page-locked) enables faster copies to CUDA
+
+🔧 Example:
+pin_memory=True  # Recommended if using a GPU
+
+
+
+🧩 collate_fn
+Type: function
+Purpose: Merges a list of samples into a mini-batch.
+
+🔍 Why you need it:
+PyTorch's default collate_fn doesn't work with detection/segmentation data because the targets (masks, boxes, etc.) vary per image.
+
+You must define a custom collate function for variable-sized inputs.
