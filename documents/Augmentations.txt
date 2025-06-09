@@ -1,0 +1,48 @@
+First:
+| Transform                  | Benefit                                                                 |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `RandomPhotometricDistort` | Color jitter-like changes to make model robust to lighting variations   |
+| `RandomIoUCrop`            | Forces model to learn partial object views (helps mAP on small objects) |
+| `RandomHorizontalFlip`     | Basic and effective spatial augmentation                                |
+| `RandomZoomOut`            | Adds context and variation in object scale                              |
+
+
+
+
+Improved:
+| Transform                      | Why it helps                                          |
+| ------------------------------ | ----------------------------------------------------- |
+| `RandomPhotometricDistort`     | Augments lighting/color to improve robustness         |
+| `RandomIoUCrop`                | Crops image but ensures objects are still visible     |
+| `RandomHorizontalFlip`         | Adds common spatial variation                         |
+| `RandomZoomOut(fill=0)`        | Zooms out with safe mask padding (scalar fill)        |
+| `Resize((512, 512))`           | Standardizes input shape (optional but often helpful) |
+| `ToDtype(...), ToPureTensor()` | Converts image and masks to compatible torch tensors  |
+
+You can skip Resize(...) if your model can handle variable input sizes, but keeping it makes batching easier.
+
+fill=0 ensures the masks are valid (1 for object, 0 for background).
+
+If you use multi-class masks, verify your dataset's mask encoding — this pipeline assumes binary or instance masks per object.
+
+
+
+
+Improved:
+✅ Optimizations for Segmentation
+| What                                                             | Why                                                                                            |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Keep aspect ratio during resize**                              | Avoids distorting masks (important in segmentation). Use `T.RandomResize` over fixed `Resize`. |
+| **Use padding with mask-safe fill**                              | `fill=0` is perfect for masks — keep it that way.                                              |
+| **Avoid `RandomIoUCrop` for segmentation**                       | It can crop out objects completely. `RandomCrop` is safer, especially paired with resize.      |
+| **Use `RandomResize`, `RandomCrop`, and `RandomHorizontalFlip`** | These are the standard for most segmentation pipelines.                                        |
+T.RandomRotation(degrees=10, fill=0) randomly rotates images and masks between -10 and +10 degrees.
+
+
+Why this is better:
+RandomResize mimics real-world variation in object size.
+
+RandomCrop with pad_if_needed=True avoids cutting objects entirely, unlike RandomIoUCrop which can produce empty masks or 0-area boxes.
+
+RandomZoomOut gives helpful context to small objects, safe with fill=0.
+

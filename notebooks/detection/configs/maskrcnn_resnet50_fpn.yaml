@@ -1,4 +1,4 @@
-experiment_name: "maskrcnn_baseline"
+experiment_name: "maskrcnn_resnet50_fpn"
 model: "maskrcnn_resnet50_fpn"
 num_classes: 2
 
@@ -20,6 +20,6 @@ train:
 
 logging:
   use_tensorboard: true
-  log_dir: "runs/maskrcnn"
+  log_dir: "runs/maskrcnn_resnet50_fpn"
 
-output_dir: "outputs/maskrcnn_baseline/"
+output_dir: "outputs/maskrcnn_resnet50_fpn/"

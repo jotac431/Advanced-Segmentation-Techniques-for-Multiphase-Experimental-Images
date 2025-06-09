@@ -1,0 +1,27 @@
+| Experiment | Model                    | LR    | Epochs | Notes                          |
+| ---------- | ------------------------ | ----- | ------ | ------------------------------ |
+| Exp1       | `maskrcnn_resnet50_fpn`  | 0.005 | 10     | Baseline                       |
+| Exp2       | `maskrcnn_resnet101_fpn` | 0.005 | 10     | Deeper backbone                |
+| Exp3       | `maskrcnn_mobilenetv3`   | 0.005 | 10     | Lightweight, faster variant    |
+| Exp4       | `deeplabv3_resnet50`     | 0.005 | 10     | Semantic segmentation baseline |
+
+
+
+
+
+
+| Metric                | Meaning                                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`segm_mAP`**        | Mean Average Precision across IoU thresholds from **0.50 to 0.95 (step=0.05)**. This is the **main COCO score** — a summary of model quality. |
+| **`segm_mAP_50`**     | AP at a fixed **IoU = 0.50** — often considered a **"loose" match**, more lenient.                                                            |
+| **`segm_mAP_75`**     | AP at a fixed **IoU = 0.75** — a **stricter** metric, penalizes rough masks.                                                                  |
+| **`segm_mAP_small`**  | AP for **small** objects (area < 32×32 pixels). Tests how well your model detects tiny features.                                              |
+| **`segm_mAP_medium`** | AP for **medium** objects (32×32 to 96×96).                                                                                                   |
+| **`segm_mAP_large`**  | AP for **large** objects (area > 96×96). Shows how well big masks are handled.                                                                |
+
+
+Use segm_mAP as the main evaluation metric.
+
+mAP_50 and mAP_75 give you more detailed insight.
+
+small, medium, large show where your model performs well or poorly (e.g., maybe it misses small bubbles?).
