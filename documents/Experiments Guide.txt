@@ -25,3 +25,56 @@ Use segm_mAP as the main evaluation metric.
 mAP_50 and mAP_75 give you more detailed insight.
 
 small, medium, large show where your model performs well or poorly (e.g., maybe it misses small bubbles?).
+
+
+
+
+
+🔍 What’s the difference between union-based vs. per-instance metrics?
+✅ What you implemented:
+You compute global precision/recall/F1/Dice by merging all masks into one binary mask (using np.any(...)) and then comparing those.
+
+✔️ Pros:
+Simple
+Fast
+Works well when only 1 object per image
+
+❌ Cons:
+Doesn't handle multiple objects well
+Can hide false positives or false negatives
+You can't tell how well the model detected each object
+
+🎯 What "per-instance matching" means (like COCO)
+When multiple objects are present, we want to:
+
+Match each predicted mask to a ground-truth mask (ideally the "best" one).
+Compute Dice or IoU per matched pair.
+Use a threshold (e.g., IoU ≥ 0.5) to define true positives, false positives, and false negatives.
+
+🔁 Matching via IoU threshold
+Here’s a simplified version of what happens:
+
+
+
+Step-by-step:
+
+1. For each predicted mask:
+Compute IoU with all ground truth masks.
+Match it to the ground truth with highest IoU ≥ 0.5 (or your chosen threshold).
+If no match, it's a false positive.
+
+2. For each ground truth mask not matched, it’s a false negative.
+
+3. Compute:
+Precision = TP / (TP + FP)
+Recall = TP / (TP + FN)
+F1 and Dice using matched pairs.
+
+This is how COCO evaluator computes mAP — by trying to pair predicted instances with ground truths using an IoU threshold.
+
+
+
+✅ Why use this?
+You get fair object-level evaluation.
+Metrics are more sensitive to localization quality.
+You avoid the "mask blob" issue of the union method.
