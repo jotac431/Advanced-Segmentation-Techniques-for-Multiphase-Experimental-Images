@@ -1,0 +1,49 @@
+🧠 1. Types of Image Segmentation
+✅ Instance Segmentation
+Goal: Detect each object instance and segment its exact pixels.
+
+Output: Multiple masks, one per object.
+
+Example: 3 separate bubbles → 3 masks.
+
+📦 Models:
+Mask R-CNN ✅
+
+YOLOv8-seg ✅
+
+✅ Semantic Segmentation
+Goal: Assign a class to each pixel, but does not differentiate between object instances.
+
+Output: One mask per class (e.g., "bubble" pixels vs. background).
+
+Example: All bubbles are labeled the same (no instance distinction).
+
+📦 Models:
+DeepLabV3 ✅
+
+U-Net ✅
+
+DeepLabV3+ ✅
+
+✅ Panoptic Segmentation
+Goal: Combine semantic + instance segmentation:
+
+Segment each object instance (like instance segmentation)
+
+Also label background stuff (like sky, road) semantically.
+
+Output: Each pixel has a label and (optionally) an instance ID.
+
+📦 Models:
+Detectron2 Panoptic FPN
+
+Mask2Former
+
+Segment Anything (SAM) by Meta (limited instance-level control)
+
+🔍 Summary of Differences
+Feature	Semantic	Instance	Panoptic
+Per-pixel classification	✅	✅	✅
+Detects individual objects	❌	✅	✅
+Counts distinct objects	❌	✅	✅
+Useful for stuff like road/sky	✅	❌	✅

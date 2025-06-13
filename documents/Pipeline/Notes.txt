@@ -1,0 +1,7 @@
+Registar tempo de execução do modelo para inferência e análise de execução em real time.
+adicionar metricas como a distribuição do tamanho, quantificação de bolhas
+(ideia interessante mas por confirmar: Colocar uma label diferente por cada bolha detetada, por examplo Bolha1, Bolha2...; cor diferente; e diametro da bolha)
+
+Considerar no final automatizar tudo, isto é, fazer um programa para a execução do modelo pelos colaboradores, com estas funcionalidades acima.
+
+Era ideal ainda aplicar um RSA (Reconstruction Shape Algorithm).

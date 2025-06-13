@@ -1,6 +1,8 @@
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+from torchvision.models.detection import MaskRCNN
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
 
 
 def get_maskrcnn_resnet50_fpn(num_classes):
@@ -9,8 +11,9 @@ def get_maskrcnn_resnet50_fpn(num_classes):
     return _replace_heads(model, num_classes)
 
 def get_maskrcnn_resnet101_fpn(num_classes):
-    model = torchvision.models.detection.maskrcnn_resnet101_fpn(weights="DEFAULT")
-    return _replace_heads(model, num_classes)
+    backbone = resnet_fpn_backbone('resnet101', weights="DEFAULT")
+    model = MaskRCNN(backbone=backbone, num_classes=num_classes)
+    return model
 
 def get_maskrcnn_mobilenet(num_classes):
     model = torchvision.models.detection.maskrcnn_mobilenet_v3_large_fpn(weights="DEFAULT")
