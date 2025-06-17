@@ -5,3 +5,21 @@ adicionar metricas como a distribuição do tamanho, quantificação de bolhas
 Considerar no final automatizar tudo, isto é, fazer um programa para a execução do modelo pelos colaboradores, com estas funcionalidades acima.
 
 Era ideal ainda aplicar um RSA (Reconstruction Shape Algorithm).
+
+
+
+!!!
+Encontrar metodologias (gerador tenta encontrar features e enganar o descriminador)
+https://arxiv.org/abs/2401.08407
+https://arxiv.org/abs/2301.05526
+https://www.sciencedirect.com/science/article/pii/S1077314223001236
+
+
+Metodologia:
+1- Treinar modelos com o dataset sintetico bubgan
+2- Treinar novamente cada modelo com dataset real
+
+
+Fazer estudo do tempo poupado com a anotação do SAM2, dar exemplos.
+No fim dar sugestões de melhorias à pipeline!
+
