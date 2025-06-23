@@ -1,0 +1,26 @@
+experiment_name: "maskrcnn_resnet50_fpn_exp3"
+model: "maskrcnn_resnet50_fpn_exp3"   # Try upgraded model
+num_classes: 2
+
+dataset:
+  train: "../../../BubANN_GAN.v1i.coco-segmentation/train"
+  val: "../../../BubANN_GAN.v1i.coco-segmentation/valid"
+  test: "../../../BubANN_GAN.v1i.coco-segmentation/test"
+  augment: true   # if you add augmentations in code
+
+train:
+  batch_size: 2            # if fits GPU
+  epochs: 30
+  lr: 0.0025
+  lr_step_size: 8          # decay slower
+  gamma: 0.7               # smoother decay
+  momentum: 0.9
+  weight_decay: 0.001      # stronger regularization
+  num_workers: 4
+  print_freq: 20
+
+logging:
+  use_tensorboard: true
+  log_dir: "runs/maskrcnn_resnet50_fpn_exp3"
+
+output_dir: "outputs/maskrcnn_resnet50_fpn_exp3/"

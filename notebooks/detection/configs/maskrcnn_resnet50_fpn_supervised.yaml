@@ -3,9 +3,9 @@ model: "maskrcnn_resnet50_fpn"
 num_classes: 2
 
 dataset:
-  train: "../../../datasets/CRADataset/train"
-  val: "../../../datasets/CRADataset/valid"
-  test: "../../../datasets/CRADataset/test"
+  train: "../../../datasets/SupervisedDataset/train"
+  val: "../../../datasets/SupervisedDataset/valid"
+  test: "../../../datasets/SupervisedDataset/test"
 
 train:
   batch_size: 2

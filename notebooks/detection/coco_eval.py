@@ -17,6 +17,16 @@ class CocoEvaluator:
         coco_gt = copy.deepcopy(coco_gt)
         self.coco_gt = coco_gt
 
+        # 🔧 Inject default "info" field if missing
+        if "info" not in self.coco_gt.dataset:
+            self.coco_gt.dataset["info"] = {
+                "description": "Default info injected for compatibility",
+                "version": "1.0",
+                "year": 2025,
+                "contributor": "Unknown",
+                "date_created": "2025-06-17"
+            }
+
         self.iou_types = iou_types
         self.coco_eval = {}
         for iou_type in iou_types:

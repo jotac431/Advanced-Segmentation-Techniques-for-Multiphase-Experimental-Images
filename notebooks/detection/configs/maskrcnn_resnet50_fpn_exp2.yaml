@@ -1,0 +1,25 @@
+experiment_name: "maskrcnn_resnet50_fpn_v2"
+model: "maskrcnn_resnet50_fpn_v2"
+num_classes: 2
+
+dataset:
+  train: "../../../BubANN_GAN.v1i.coco-segmentation/train"
+  val: "../../../BubANN_GAN.v1i.coco-segmentation/valid"
+  test: "../../../BubANN_GAN.v1i.coco-segmentation/test"
+
+train:
+  batch_size: 2
+  epochs: 30                 # give more room to learn
+  lr: 0.0025                 # lower initial LR (half of before)
+  lr_step_size: 5            # decay less frequently
+  gamma: 0.5                 # smoother decay
+  momentum: 0.9
+  weight_decay: 0.0005
+  num_workers: 4
+  print_freq: 20
+
+logging:
+  use_tensorboard: true
+  log_dir: "runs/maskrcnn_resnet50_fpn_v2"
+
+output_dir: "outputs/maskrcnn_resnet50_fpn_v2/"
