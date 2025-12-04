@@ -1,0 +1,24 @@
+{
+    "semantic_metrics": {
+        "precision": 0.9693911028149345,
+        "recall": 0.9729822758706299,
+        "f1": 0.9707433909638591,
+        "dice": 0.9707433909414953,
+        "iou": 0.9432868132843159
+    },
+    "instance_metrics": {
+        "avg_bubbles": 10.586666666666666,
+        "mean_area": 4616.681302484184,
+        "median_area": 4444.193333333334
+    },
+    "timing": {
+        "avg_infer_time": 0.13931432723999024,
+        "fps": 7.178012626636362
+    },
+    "config_used": {
+        "score_thresh": 0.5,
+        "min_area": 50,
+        "mask_thresh": 0.5
+    },
+    "examples_dir": "results/maskrcnn_resnet50_fpn_synth_20251128_2228/examples"
+}

@@ -1,5 +1,0 @@
-Inference Timing Statistics:
-Average inference time per image: 209.21 ms
-Standard deviation:               41.42 ms
-Maximum inference time:          408.66 ms
-Estimated FPS:                    4.78
