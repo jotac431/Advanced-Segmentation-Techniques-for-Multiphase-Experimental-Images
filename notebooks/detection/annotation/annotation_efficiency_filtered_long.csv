@@ -3,7 +3,6 @@ filename,mode,lead_time,polygon_bubbles,sam2_bubbles,total_bubbles,sec_per_bubbl
 10x_qc1_qd2_2_00002.jpg,manual_only,148.92999999999998,2,1,3,49.643333333333324,1.208621500033573
 10x_qc1_qd2_3_00004.jpg,manual_only,249.304,0,7,7,35.61485714285714,1.684690177454032
 agua2SDS_minOIL_qc16_qd1_form_00000.jpg,manual_only,84.14099999999999,2,2,4,21.035249999999998,2.852354975576711
-agua2SDS_minOIL_qc2_qd1_const_00000.jpg,manual_only,,17,0,17,,
 agua2SDS_minOIL_qc4_qd1_form_00000.jpg,manual_only,114.693,4,6,10,11.4693,5.2313567523737285
 formacao_00000.jpg,manual_only,43.531000000000006,0,2,2,21.765500000000003,2.7566561760584407
 oleo3_aguaup1_5x_formacao_00000.jpg,manual_only,100.509,1,7,8,12.563625,4.775691729098886
@@ -18,7 +17,6 @@ qd2qc7_5x_1_00000.jpg,manual_only,205.346,4,26,30,6.844866666666666,8.7656930254
 10x_qc1_qd2_2_00002.jpg,preannotations_only,101.51,1,1,2,50.755,1.1821495419170525
 10x_qc1_qd2_3_00004.jpg,preannotations_only,110.185,6,2,8,13.773125,4.35630984253755
 agua2SDS_minOIL_qc16_qd1_form_00000.jpg,preannotations_only,30.289,3,0,3,10.096333333333334,5.942751493941695
-agua2SDS_minOIL_qc2_qd1_const_00000.jpg,preannotations_only,150.387,6,6,12,12.53225,4.787647868499272
 agua2SDS_minOIL_qc4_qd1_form_00000.jpg,preannotations_only,44.007,8,0,8,5.500875,10.907355647965097
 formacao_00000.jpg,preannotations_only,19.647,1,1,2,9.8235,6.10780271797221
 oleo3_aguaup1_5x_formacao_00000.jpg,preannotations_only,53.185,8,0,8,6.648125,9.025101062329604
@@ -33,7 +31,6 @@ qd2qc7_5x_1_00000.jpg,preannotations_only,16.039,30,0,30,0.5346333333333334,112.
 10x_qc1_qd2_2_00002.jpg,preannotations_plus_sam2,15.341,1,1,2,7.6705,7.822175868587446
 10x_qc1_qd2_3_00004.jpg,preannotations_plus_sam2,32.167,5,2,7,4.595285714285715,13.056859514409176
 agua2SDS_minOIL_qc16_qd1_form_00000.jpg,preannotations_plus_sam2,9.168,2,1,3,3.0559999999999996,19.63350785340314
-agua2SDS_minOIL_qc2_qd1_const_00000.jpg,preannotations_plus_sam2,53.067,5,7,12,4.42225,13.567753971394652
 agua2SDS_minOIL_qc4_qd1_form_00000.jpg,preannotations_plus_sam2,30.524,3,6,9,3.3915555555555557,17.690997248067095
 formacao_00000.jpg,preannotations_plus_sam2,8.591,1,1,2,4.2955,13.9681061576068
 oleo3_aguaup1_5x_formacao_00000.jpg,preannotations_plus_sam2,11.051,7,1,8,1.381375,43.43498325943354

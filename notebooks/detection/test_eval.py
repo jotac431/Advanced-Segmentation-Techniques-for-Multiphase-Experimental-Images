@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from dataclasses import dataclass, asdict
 
-from torchvision.io import read_image
+from torchvision.io import read_image, ImageReadMode
 from torchvision import tv_tensors
 from pycocotools.coco import COCO
 from pycocotools import mask as coco_mask
@@ -58,7 +58,7 @@ class COCOSegmentationDataset(torch.utils.data.Dataset):
         img_info = coco.loadImgs(img_id)[0]
 
         img_path = os.path.join(self.root_dir, img_info["file_name"])
-        img = read_image(img_path)
+        img = read_image(img_path, mode=ImageReadMode.RGB)
         img = tv_tensors.Image(img)
         h, w = img.shape[-2:]
 
@@ -197,14 +197,21 @@ def run_test_evaluation(
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
-            "ImageIdx", "Precision", "Recall", "F1", "Dice", "IoU",
+            "ImageIdx",
+            "Precision", "Recall", "F1", "Dice", "IoU",
             "NumBubbles", "MeanArea", "MedianArea",
+            "GT_NumBubbles", "GT_MeanArea", "GT_MedianArea",
+            "CountError", "AbsCountError",
+            "GT_IsEmpty", "Pred_IsEmpty",
         ])
 
     stats = {
         "precision": [], "recall": [], "f1": [],
-        "dice": [], "iou": [], "num_bubbles": [],
-        "mean_area": [], "median_area": [],
+        "dice": [], "iou": [],
+        "num_bubbles": [], "mean_area": [], "median_area": [],
+        "gt_num_bubbles": [], "gt_mean_area": [], "gt_median_area": [],
+        "count_error": [], "abs_count_error": [],
+        "gt_is_empty": [], "pred_is_empty": [],
         "infer_times": []
     }
 
@@ -222,10 +229,20 @@ def run_test_evaluation(
             image = image[:3, ...]  # ensure RGB
             true_mask = np.any(targets[0]["masks"].cpu().numpy(), axis=0).astype(np.uint8)
 
-            # Skip images with no GT bubbles
-            if true_mask.sum() == 0:
-                continue
+            # --------------------------------------------------------------
+            # GT instance stats (keep empty-GT frames)
+            # --------------------------------------------------------------
+            gt_masks_np = targets[0]["masks"].cpu().numpy()  # [K,H,W]
+            if gt_masks_np.size == 0:
+                gt_areas = np.array([])
+            else:
+                gt_areas = gt_masks_np.reshape(gt_masks_np.shape[0], -1).sum(axis=1)
+                gt_areas = gt_areas[gt_areas > 0]
 
+            gt_num_bubbles = int(gt_areas.size)
+            gt_mean_area = float(gt_areas.mean()) if gt_areas.size else 0.0
+            gt_median_area = float(np.median(gt_areas)) if gt_areas.size else 0.0
+            gt_is_empty = (true_mask.sum() == 0)
             # Timing
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
@@ -277,6 +294,8 @@ def run_test_evaluation(
             # ------------------------------------------------------------------
             pred_mask = np.any(keep_masks, axis=0).astype(np.uint8) if keep_masks.ndim == 3 else np.zeros_like(true_mask)
 
+            pred_is_empty = (pred_mask.sum() == 0)
+
             # Semantic metrics
             pred_flat = pred_mask.flatten()
             true_flat = true_mask.flatten()
@@ -287,8 +306,16 @@ def run_test_evaluation(
 
             intersection = np.logical_and(pred_mask, true_mask).sum()
             union = np.logical_or(pred_mask, true_mask).sum()
-            dice = (2 * intersection) / (pred_mask.sum() + true_mask.sum() + 1e-6)
-            iou = intersection / (union + 1e-6)
+            # If both GT and prediction are empty, treat as perfect segmentation
+            if true_mask.sum() == 0 and pred_mask.sum() == 0:
+                precision = 1.0
+                recall = 1.0
+                f1 = 1.0
+                dice = 1.0
+                iou = 1.0
+            else:
+                dice = (2 * intersection) / (pred_mask.sum() + true_mask.sum() + 1e-6)
+                iou = intersection / (union + 1e-6)
 
             stats["precision"].append(float(precision))
             stats["recall"].append(float(recall))
@@ -296,12 +323,26 @@ def run_test_evaluation(
             stats["dice"].append(float(dice))
             stats["iou"].append(float(iou))
 
+            # GT + count stats
+            stats["gt_num_bubbles"].append(int(gt_num_bubbles))
+            stats["gt_mean_area"].append(float(gt_mean_area))
+            stats["gt_median_area"].append(float(gt_median_area))
+            count_error = int(num_bubbles - gt_num_bubbles)
+            stats["count_error"].append(count_error)
+            stats["abs_count_error"].append(abs(count_error))
+            stats["gt_is_empty"].append(int(gt_is_empty))
+            stats["pred_is_empty"].append(int(pred_is_empty))
+
             # Write per-image row
             with open(csv_path, "a", newline="") as f:
                 writer = csv.writer(f)
                 writer.writerow([
-                    idx, precision, recall, f1, dice, iou,
+                    idx,
+                    precision, recall, f1, dice, iou,
                     num_bubbles, mean_area, median_area,
+                    gt_num_bubbles, gt_mean_area, gt_median_area,
+                    count_error, abs(count_error),
+                    int(gt_is_empty), int(pred_is_empty),
                 ])
 
             # Visualization
@@ -323,6 +364,15 @@ def run_test_evaluation(
         "avg_bubbles": np.mean(stats["num_bubbles"]) if stats["num_bubbles"] else 0,
         "mean_area": np.mean(stats["mean_area"]) if stats["mean_area"] else 0,
         "median_area": np.mean(stats["median_area"]) if stats["median_area"] else 0,
+        "gt_avg_bubbles": np.mean(stats["gt_num_bubbles"]) if stats["gt_num_bubbles"] else 0,
+        "gt_mean_area": np.mean(stats["gt_mean_area"]) if stats["gt_mean_area"] else 0,
+        "gt_median_area": np.mean(stats["gt_median_area"]) if stats["gt_median_area"] else 0,
+        "count_error_mean": np.mean(stats["count_error"]) if stats["count_error"] else 0,
+        "abs_count_error_mean": np.mean(stats["abs_count_error"]) if stats["abs_count_error"] else 0,
+        "num_images": int(len(stats["dice"])),
+        "num_empty_gt": int(np.sum(stats["gt_is_empty"])) if stats["gt_is_empty"] else 0,
+        "num_empty_pred": int(np.sum(stats["pred_is_empty"])) if stats["pred_is_empty"] else 0,
+        "num_empty_both": int(np.sum((np.array(stats["gt_is_empty"])==1) & (np.array(stats["pred_is_empty"])==1))) if stats["gt_is_empty"] and stats["pred_is_empty"] else 0,
     }
 
     timing = {

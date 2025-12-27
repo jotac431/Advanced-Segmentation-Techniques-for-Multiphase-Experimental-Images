@@ -15,7 +15,7 @@ from datetime import datetime
 import torch
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
-from torchvision.io import read_image
+from torchvision.io import read_image, ImageReadMode
 from torchvision import tv_tensors
 from torchvision.transforms import v2 as T
 from pycocotools.coco import COCO
@@ -74,7 +74,9 @@ class COCOSegmentationDataset(Dataset):
         img_info = coco.loadImgs(img_id)[0]
         img_path = os.path.join(self.root_dir, img_info['file_name'])
 
-        img = read_image(img_path)
+        #img = read_image(img_path)
+        img = read_image(img_path, mode=ImageReadMode.RGB)  # always 3 channels
+
         img = tv_tensors.Image(img)
         h, w = img.shape[-2:]
 
@@ -96,7 +98,10 @@ class COCOSegmentationDataset(Dataset):
 
             x, y, bw, bh = ann['bbox']
             boxes.append(torch.tensor([x, y, x + bw, y + bh], dtype=torch.float32))
-            labels.append(ann.get('category_id', 1))
+
+            cat = ann.get("category_id", 1)
+            labels.append(1 if cat == 0 else cat)
+            
             areas.append(ann['area'])
             iscrowd.append(ann.get('iscrowd', 0))
 
@@ -331,8 +336,8 @@ def run_synthetic_training(cfg):
     epochs_no_improve = 0
     patience = 5
 
-    model_name = cfg["model"]
-    is_unet = "unet" in model_name
+    model_name = cfg["model"]["type"]
+    is_unet = "unet" in model_name.lower()
     num_epochs = cfg["train"]["epochs"]
 
     # CSV paths

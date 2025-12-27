@@ -2,6 +2,7 @@ import pandas as pd
 import json
 import ast
 from pathlib import Path
+import math
 
 
 # ============================================================
@@ -19,7 +20,7 @@ SELECTED_IMAGES = [  "10x_qc1_qd2_23_00002.jpg"
                    , "10x_qc1_qd2_2_00002.jpg"
                    , "10x_qc1_qd2_3_00004.jpg"
                    , "agua2SDS_minOIL_qc16_qd1_form_00000.jpg"
-                   , "agua2SDS_minOIL_qc2_qd1_const_00000.jpg"
+                   #, "agua2SDS_minOIL_qc2_qd1_const_00000.jpg"
                    , "agua2SDS_minOIL_qc4_qd1_form_00000.jpg"
                    , "formacao_00000.jpg"
                    , "oleo3_aguaup1_5x_formacao_00000.jpg"
@@ -29,7 +30,7 @@ SELECTED_IMAGES = [  "10x_qc1_qd2_23_00002.jpg"
                    , "qd2qc2_5x_1_00000.jpg"
                    , "qd2qc4_5x_1_00004.jpg"
                    , "qd2qc6_5x_partefinal_1_00001.jpg"
-                   , "qd2qc7_5x_1_00000.jpg"]  # <-- 15 FILENAMES
+                   , "qd2qc7_5x_1_00000.jpg"]  # <-- 14 FILENAMES
 
 TASK_IDS = [1,6,20,28,37,54,61,83,103,133,140,152,172,210,222]
 
@@ -54,29 +55,91 @@ COL_LEAD_TIME = "lead_time"
 # PARSERS
 # ============================================================
 
-def safe_parse_json(value):
-    if value is None:
+import json
+import ast
+
+def parse_json_maybe(cell):
+    """
+    LS exports JSON *inside a CSV cell* with double double-quotes.
+    This function safely recovers it into a Python list/dict.
+    """
+    if cell is None:
         return []
-    s = str(value).strip()
-    if not s or s == "[]":
+
+    s = str(cell).strip()
+
+    # Empty or literal empty list
+    if s == "" or s == "[]":
         return []
+
+    # --- Try direct JSON ---
     try:
         return json.loads(s)
-    except:
-        try:
-            return ast.literal_eval(s)
-        except:
-            return []
+    except json.JSONDecodeError:
+        pass
+
+    # --- Try Python literal (handles LS's double quoting) ---
+    try:
+        return ast.literal_eval(s)
+    except Exception:
+        return None
 
 
-def count_polygons(label_field):
-    items = safe_parse_json(label_field)
-    return len(items)
+def count_polygons(cell):
+    """
+    Counts polygon objects inside the 'label' column.
+
+    Works for:
+    - [{ "points": [...], "polygonlabels": ["bubble"], ... }, ...]
+    - [{ "value": {"points": [...], "polygonlabels": [...] }}, ...]
+    """
+    data = parse_json_maybe(cell)
+    if data is None:
+        return 0
+
+    if isinstance(data, dict):
+        data = [data]
+
+    count = 0
+
+    if isinstance(data, list):
+        for obj in data:
+            if not isinstance(obj, dict):
+                continue
+
+            # Flat (your manual export)
+            if "points" in obj and "polygonlabels" in obj:
+                count += 1
+                continue
+
+            # Nested
+            val = obj.get("value")
+            if isinstance(val, dict) and "points" in val and "polygonlabels" in val:
+                count += 1
+
+    return count
 
 
-def count_sam_masks(mask_field):
-    items = safe_parse_json(mask_field)
-    return len(items)
+def count_masks(cell):
+    """
+    Count masks in sam_mask column.
+
+    LS formats include:
+      - [{"format": "rle", "rle": [...]}, {...}]
+      - {"format": "rle", ...}
+    """
+    data = parse_json_maybe(cell)
+    if data is None:
+        return 0
+
+    if isinstance(data, dict):
+        return 1
+
+    if isinstance(data, list):
+        return sum(1 for obj in data if isinstance(obj, dict))
+
+    return 0
+
 
 
 # ============================================================
@@ -93,9 +156,10 @@ def process_single_csv(csv_path, mode_name):
     df = df[df["filename"].isin(SELECTED_IMAGES)].copy()
 
     # bubble counts
-    df["polygon_bubbles"] = df[COL_LABEL].apply(count_polygons)
-    df["sam2_bubbles"] = df[COL_SAM2].apply(count_sam_masks)
+    df["polygon_bubbles"] = df["label"].apply(count_polygons)
+    df["sam2_bubbles"] = df["sam_mask"].apply(count_masks)
     df["total_bubbles"] = df["polygon_bubbles"] + df["sam2_bubbles"]
+
 
     # time metrics
     df["sec_per_bubble"] = df.apply(
