@@ -88,6 +88,17 @@ def plot_bubble_area_distribution(df, out_path):
     _save_fig(fig, out_path)
 
 
+
+def plot_scatter(df, x_col, y_col, title, xlabel, ylabel, out_path):
+    df_valid = df[[x_col, y_col]].dropna()
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(df_valid[x_col], df_valid[y_col], alpha=0.7)
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.grid(True, alpha=0.3)
+    _save_fig(fig, out_path)
+
 def plot_timing(json_data, out_path):
     fig, ax = plt.subplots(figsize=(6, 4))
     fps = json_data["timing"]["fps"]
@@ -120,6 +131,26 @@ def generate_single_experiment_plots(exp_dir):
     plot_distribution(df, "NumBubbles", "Bubble Count per Image", "Num Bubbles",
                       os.path.join(plots, "bubble_count_dist"))
     plot_bubble_area_distribution(df, os.path.join(plots, "bubble_area_dist"))
+
+    # Optional GT-aware plots (available with the updated evaluator)
+    if "GT_NumBubbles" in df.columns:
+        plot_distribution(df, "GT_NumBubbles", "GT Bubble Count per Image", "GT Num Bubbles",
+                          os.path.join(plots, "gt_bubble_count_dist"))
+    if "CountError" in df.columns:
+        plot_distribution(df, "CountError", "Bubble Count Error (Pred - GT)", "Count Error",
+                          os.path.join(plots, "count_error_dist"))
+    if "AbsCountError" in df.columns:
+        plot_distribution(df, "AbsCountError", "Absolute Bubble Count Error", "Abs Count Error",
+                          os.path.join(plots, "abs_count_error_dist"))
+    if "GT_MeanArea" in df.columns:
+        df_gt_area = df[df["GT_MeanArea"] > 0]
+        plot_distribution(df_gt_area, "GT_MeanArea", "GT Bubble Area Distribution (Mean Area per Image)", "GT Mean Area (pixels)",
+                          os.path.join(plots, "gt_bubble_area_dist"))
+    if "GT_NumBubbles" in df.columns and "NumBubbles" in df.columns:
+        plot_scatter(df, "GT_NumBubbles", "NumBubbles",
+                     "Pred vs GT Bubble Count", "GT Num Bubbles", "Pred Num Bubbles",
+                     os.path.join(plots, "pred_vs_gt_bubble_count"))
+
 
     # Timing summary
     plot_timing(data["json"], os.path.join(plots, "timing"))
@@ -218,6 +249,22 @@ def generate_experiment_comparison(experiments: List[str], out_dir="comparisons"
         "Average Bubble Count",
         "Avg Bubbles",
         os.path.join(out_dir, "compare_bubble_count"),
+    )
+
+    # Optional: counting error (only if present in results.json)
+    plot_metric_comparison(
+        experiments,
+        "abs_count_error_mean",
+        "Mean Absolute Bubble Count Error",
+        "Abs Count Error",
+        os.path.join(out_dir, "compare_abs_count_error"),
+    )
+    plot_metric_comparison(
+        experiments,
+        "count_error_mean",
+        "Mean Bubble Count Error (Pred - GT)",
+        "Count Error",
+        os.path.join(out_dir, "compare_count_error"),
     )
 
     # Inference speed
