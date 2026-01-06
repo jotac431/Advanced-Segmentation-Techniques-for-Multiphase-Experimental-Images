@@ -1,5 +1,6 @@
 experiment:
   name: "maskrcnn_resnet50_fpn_synth"
+  seed: 42
 
 model:
   type: "maskrcnn_resnet50_fpn"

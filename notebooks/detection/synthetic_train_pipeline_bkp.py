@@ -42,35 +42,14 @@ def set_seed(seed: int = 42):
 # =====================================================
 # Helper: flatten config dictionary for TensorBoard
 # =====================================================
-def _tb_hparam_value(v):
-    # TensorBoard HParams supports: int, float, bool, str (and sometimes None via str)
-    if v is None:
-        return "None"
-    # numpy scalars -> python scalars
-    try:
-        if isinstance(v, _np.generic):
-            return v.item()
-    except Exception:
-        pass
-    # lists/tuples/sets/dicts -> string (keeps full info, avoids crash)
-    if isinstance(v, (list, tuple, set, dict)):
-        return str(v)
-    # Path-like / other objects -> string
-    if not isinstance(v, (int, float, bool, str)):
-        return str(v)
-    return v
-
-
 def flatten_dict(d, parent_key: str = "", sep: str = "/"):
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        # Make key safe for HParams table
-        new_key = new_key.replace("/", "_")
         if isinstance(v, dict):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
-            items.append((new_key, _tb_hparam_value(v)))
+            items.append((new_key, v))
     return dict(items)
 
 
@@ -214,29 +193,36 @@ class RandomGaussianNoise(torch.nn.Module):
 
 def build_augmentations(cfg, train=True):
     """
-    Simple, dissertation-friendly augmentation builder:
-    - Always applies preprocessing: Resize + dtype conversion + tensor conversion
-    - Applies random augmentations ONLY when:
-        train == True AND augmentation.enabled == True
-
-    YAML keys (all optional; defaults preserve your current behavior):
-      augmentation:
-        enabled: true/false         # if false -> NO random augmentations
-        resize: [H, W]              # default [512, 512]
-        hflip_p: 0.5                # default 0.5 (your previous hardcoded behavior)
-
-        strong_color_jitter: true/false
-        intensity_shift: true/false
-        blur: true/false
-        rotation: true/false        # only applied for UNet
+    v2 augmentation builder:
+    - Backwards compatible with your previous boolean flags:
+        strong_color_jitter, blur, intensity_shift, rotation
+    - Adds structured YAML control (recommended):
+        resize: [H, W]
+        hflip/vflip: {p: ...}
+        color_jitter: {p: ..., brightness: ..., contrast: ..., saturation: ..., hue: ...}
+        blur: {p: ..., kernel_size: 3, sigma: [0.1, 1.0]}
+        sharpness: {p: ..., factor: ...}
+        gaussian_noise: {p: ..., std: ..., mean: ..., clip: true}
+        autocontrast/equalize: {p: ...}  (only if available in your torchvision)
     """
     aug = cfg.get("augmentation", {}) or {}
     model_name = cfg.get("model", {}).get("type", "")
     is_unet = "unet" in model_name.lower()
 
-    # -------------------------
-    # Preprocessing (always on)
-    # -------------------------
+    def _get_p(x, default):
+        if x is None:
+            return float(default)
+        if isinstance(x, dict):
+            return float(x.get("p", default))
+        # allow shorthand: hflip: 0.5
+        return float(x)
+
+    def _get_dict(x):
+        return x if isinstance(x, dict) else {}
+
+    # ----------------------------------------------------------
+    # Resize always first
+    # ----------------------------------------------------------
     resize = aug.get("resize", (512, 512))
     if isinstance(resize, int):
         resize = (resize, resize)
@@ -244,39 +230,97 @@ def build_augmentations(cfg, train=True):
 
     t_list = [T.Resize(resize)]
 
-    # -------------------------
-    # Random augmentations
-    # -------------------------
-    aug_enabled = bool(aug.get("enabled", True))
+    # ----------------------------------------------------------
+    # TRAIN augmentations
+    # ----------------------------------------------------------
+    if train:
+        # Flips (default hflip=0.5 for backward compatibility)
+        hflip_cfg = aug.get("hflip", None)
+        if hflip_cfg is None:
+            hflip_p = 0.5
+        else:
+            hflip_p = _get_p(hflip_cfg, 0.0)
+        t_list.append(T.RandomHorizontalFlip(p=hflip_p))
 
-    if train and aug_enabled:
-        if aug.get("strong_color_jitter", False):
-            t_list.append(T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4))
+        vflip_cfg = aug.get("vflip", None)
+        vflip_p = _get_p(vflip_cfg, 0.0)
+        if vflip_p > 0:
+            t_list.append(T.RandomVerticalFlip(p=vflip_p))
 
-        if aug.get("intensity_shift", False):
-            t_list.append(T.RandomAdjustSharpness(sharpness_factor=2, p=0.3))
+        # Color jitter (new schema) OR old strong_color_jitter flag
+        cj_cfg = aug.get("color_jitter", None)
+        if cj_cfg is None and bool(aug.get("strong_color_jitter", False)):
+            cj_cfg = {"p": 1.0, "brightness": 0.4, "contrast": 0.4, "saturation": 0.4, "hue": 0.0}
+        if isinstance(cj_cfg, dict) and cj_cfg.get("p", 0) > 0:
+            p = float(cj_cfg.get("p", 0.5))
+            brightness = float(cj_cfg.get("brightness", 0.15))
+            contrast   = float(cj_cfg.get("contrast", 0.15))
+            saturation = float(cj_cfg.get("saturation", 0.15))
+            hue        = float(cj_cfg.get("hue", 0.0))
+            t_list.append(
+                T.RandomApply([T.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)], p=p)
+            )
 
-        hflip_p = float(aug.get("hflip_p", 0.5))
-        if hflip_p > 0:
-            t_list.append(T.RandomHorizontalFlip(p=hflip_p))
+        # Sharpness/intensity shift (new schema) OR old intensity_shift flag
+        sharp_cfg = aug.get("sharpness", None)
+        if sharp_cfg is None and bool(aug.get("intensity_shift", False)):
+            sharp_cfg = {"p": 0.3, "factor": 2.0}
+        if isinstance(sharp_cfg, dict) and sharp_cfg.get("p", 0) > 0:
+            p = float(sharp_cfg.get("p", 0.1))
+            factor = float(sharp_cfg.get("factor", 1.5))
+            t_list.append(T.RandomAdjustSharpness(sharpness_factor=factor, p=p))
 
-        if aug.get("blur", False):
-            t_list.append(T.GaussianBlur(kernel_size=3))
+        # Blur (supports old boolean blur: true)
+        blur_cfg = aug.get("blur", None)
+        if isinstance(blur_cfg, bool):
+            blur_cfg = {"p": 1.0} if blur_cfg else {"p": 0.0}
+        if isinstance(blur_cfg, dict) and blur_cfg.get("p", 0) > 0:
+            p = float(blur_cfg.get("p", 0.1))
+            k = int(blur_cfg.get("kernel_size", 3))
+            sigma = blur_cfg.get("sigma", None)
+            blur_t = T.GaussianBlur(kernel_size=k) if sigma is None else T.GaussianBlur(kernel_size=k, sigma=tuple(sigma))
+            t_list.append(T.RandomApply([blur_t], p=p))
 
-        # IMPORTANT: Rotation disabled for Mask R-CNN
-        if aug.get("rotation", False) and is_unet:
-            t_list.append(T.RandomRotation(10, fill=0))
+        # Autocontrast / Equalize (optional, depends on torchvision version)
+        ac_cfg = aug.get("autocontrast", None)
+        if isinstance(ac_cfg, dict) and ac_cfg.get("p", 0) > 0 and hasattr(T, "RandomAutocontrast"):
+            t_list.append(T.RandomAutocontrast(p=float(ac_cfg.get("p", 0.1))))
 
-    # -------------------------
-    # Convert at the end (always on)
-    # -------------------------
-    t_list += [
-        T.ToDtype(torch.float32, scale=True),
-        T.ToPureTensor(),
-    ]
+        eq_cfg = aug.get("equalize", None)
+        if isinstance(eq_cfg, dict) and eq_cfg.get("p", 0) > 0 and hasattr(T, "RandomEqualize"):
+            t_list.append(T.RandomEqualize(p=float(eq_cfg.get("p", 0.05))))
+
+        # IMPORTANT: Rotation remains disabled for Mask R-CNN
+        rot_cfg = aug.get("rotation", False)
+        rot_on = bool(rot_cfg) if isinstance(rot_cfg, bool) else bool(_get_dict(rot_cfg).get("p", 0) > 0)
+        if rot_on and is_unet:
+            if isinstance(rot_cfg, dict):
+                deg = float(rot_cfg.get("degrees", 10))
+                p = float(rot_cfg.get("p", 0.3))
+                t_list.append(T.RandomApply([T.RandomRotation(deg, fill=0)], p=p))
+            else:
+                t_list.append(T.RandomRotation(10, fill=0))
+
+    # ----------------------------------------------------------
+    # Always convert at the end
+    # ----------------------------------------------------------
+    t_list.append(T.ToDtype(torch.float32, scale=True))
+
+    # Gaussian noise (after ToDtype, before ToPureTensor)
+    gn_cfg = aug.get("gaussian_noise", None)
+    if isinstance(gn_cfg, dict) and gn_cfg.get("p", 0) > 0:
+        t_list.append(
+            RandomGaussianNoise(
+                p=float(gn_cfg.get("p", 0.2)),
+                mean=float(gn_cfg.get("mean", 0.0)),
+                std=float(gn_cfg.get("std", 0.02)),
+                clip=bool(gn_cfg.get("clip", True)),
+            )
+        )
+
+    t_list.append(T.ToPureTensor())
 
     return T.Compose(t_list)
-
 
 
 
@@ -593,17 +637,13 @@ def run_synthetic_training(cfg):
     # =====================================================
     print(f"Training finished. Best epoch={best_epoch}, Best value={best_val}")
 
-    try:
-        writer.add_hparams(
-            hparam_dict=flatten_dict(cfg),
-            metric_dict={"best_val_metric": float(best_val)},
-        )
-    except Exception as e:
-        print(f"[WARN] TensorBoard add_hparams failed: {e}")
-
+    writer.add_hparams(
+        hparam_dict=flatten_dict(cfg),
+        metric_dict={"best_val_metric": best_val},
+    )
     writer.close()
 
-    return model, best_val, best_epoch, cfg, f"{exp_name}_{timestamp}"
+    return model, best_val, best_epoch, cfg
         
 
 # =====================================================

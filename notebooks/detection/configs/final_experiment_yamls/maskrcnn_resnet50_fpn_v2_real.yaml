@@ -1,0 +1,42 @@
+experiment:
+  name: maskrcnn_resnet50_fpn_v2_real
+  seed: 42
+model:
+  type: maskrcnn_resnet50_fpn_v2
+  num_classes: 2
+  pretrained_backbone: true
+dataset:
+  test: ../../../datasets/RealBubbles.coco-segmentation/test
+  train: ../../../datasets/RealBubbles.coco-segmentation/train
+  val: ../../../datasets/RealBubbles.coco-segmentation/val
+train:
+  batch_size: 2
+  epochs: 50
+  lr: 0.001
+  backbone_lr_factor: 0.1
+  momentum: 0.9
+  weight_decay: 0.0005
+  lr_step_size: 7
+  gamma: 0.1
+  num_workers: 4
+  print_freq: 20
+  patience: 7
+augmentation:
+  enabled: false
+  resize:
+  - 512
+  - 512
+  hflip_p: 0.0
+  strong_color_jitter: false
+  blur: false
+  intensity_shift: false
+  rotation: false
+logging:
+  use_tensorboard: true
+  log_dir: runs/
+output:
+  dir: outputs/
+eval:
+  score_thresh: 0.5
+  min_area: 50
+  mask_thresh: 0.5

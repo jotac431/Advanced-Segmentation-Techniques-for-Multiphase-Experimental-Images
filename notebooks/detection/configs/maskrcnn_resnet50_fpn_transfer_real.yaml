@@ -26,10 +26,10 @@ train:
   patience: 7
 
 augmentation:
-  strong_color_jitter: true
+  strong_color_jitter: false
   blur: false
   rotation: false
-  intensity_shift: true
+  intensity_shift: false
 
 logging:
   use_tensorboard: true

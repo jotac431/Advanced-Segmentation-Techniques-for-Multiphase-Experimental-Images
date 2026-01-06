@@ -1,0 +1,46 @@
+experiment:
+  name: maskrcnn_resnet50_fpn_v2_transfer_real_aug
+  seed: 42
+model:
+  type: maskrcnn_resnet50_fpn_v2
+  num_classes: 2
+  pretrained_backbone: true
+dataset:
+  test: ../../../datasets/RealBubbles.coco-segmentation/test
+  train: ../../../datasets/RealBubbles.coco-segmentation/train
+  val: ../../../datasets/RealBubbles.coco-segmentation/val
+transfer:
+  init_checkpoint: outputs/<YOUR_R50V2_SYNTH_OUTPUT>/model_best.pth
+  strict_load: true
+  freeze_backbone_epochs: 3
+train:
+  batch_size: 2
+  epochs: 50
+  lr: 0.001
+  backbone_lr_factor: 0.1
+  momentum: 0.9
+  weight_decay: 0.0005
+  lr_step_size: 7
+  gamma: 0.1
+  num_workers: 4
+  print_freq: 20
+  patience: 7
+augmentation:
+  enabled: true
+  resize:
+  - 512
+  - 512
+  hflip_p: 0.5
+  strong_color_jitter: true
+  blur: true
+  intensity_shift: true
+  rotation: false
+logging:
+  use_tensorboard: true
+  log_dir: runs/
+output:
+  dir: outputs/
+eval:
+  score_thresh: 0.5
+  min_area: 50
+  mask_thresh: 0.5
