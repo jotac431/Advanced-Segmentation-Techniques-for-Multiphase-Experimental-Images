@@ -10,7 +10,7 @@ dataset:
   train: ../../../datasets/RealBubbles.coco-segmentation/train
   val: ../../../datasets/RealBubbles.coco-segmentation/val
 transfer:
-  init_checkpoint: outputs/<YOUR_R101_SYNTH_OUTPUT>/model_best.pth
+  init_checkpoint: outputs/maskrcnn_resnet101_fpn_synth_20260106_1413/model_best.pth
   strict_load: true
   freeze_backbone_epochs: 3
 train:
@@ -22,7 +22,7 @@ train:
   weight_decay: 0.0005
   lr_step_size: 7
   gamma: 0.1
-  num_workers: 4
+  num_workers: 0
   print_freq: 20
   patience: 7
 augmentation:

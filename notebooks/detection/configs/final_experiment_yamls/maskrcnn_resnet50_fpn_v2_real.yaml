@@ -18,7 +18,7 @@ train:
   weight_decay: 0.0005
   lr_step_size: 7
   gamma: 0.1
-  num_workers: 4
+  num_workers: 0
   print_freq: 20
   patience: 7
 augmentation:

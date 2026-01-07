@@ -208,4 +208,4 @@ def run_transfer_training(cfg):
         writer.close()
 
     print(f"Done. Best epoch={best_epoch}, best mAP={best_val:.4f}")
-    return model, best_val, best_epoch, out_dir
+    return model, best_val, best_epoch, f"{exp_name}_{timestamp}"

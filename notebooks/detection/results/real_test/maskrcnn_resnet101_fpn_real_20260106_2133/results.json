@@ -1,0 +1,33 @@
+{
+    "semantic_metrics": {
+        "precision": 0.9113857265662771,
+        "recall": 0.9439352240521302,
+        "f1": 0.9207417770919488,
+        "dice": 0.9207417770665611,
+        "iou": 0.866034534906763
+    },
+    "instance_metrics": {
+        "avg_bubbles": 22.36,
+        "mean_area": 2153.735251068116,
+        "median_area": 1979.42,
+        "gt_avg_bubbles": 18.84,
+        "gt_mean_area": 2277.70583931447,
+        "gt_median_area": 2028.62,
+        "count_error_mean": 3.52,
+        "abs_count_error_mean": 3.52,
+        "num_images": 25,
+        "num_empty_gt": 0,
+        "num_empty_pred": 0,
+        "num_empty_both": 0
+    },
+    "timing": {
+        "avg_infer_time": 0.2921546745300293,
+        "fps": 3.4228444285844017
+    },
+    "config_used": {
+        "score_thresh": 0.5,
+        "min_area": 50,
+        "mask_thresh": 0.5
+    },
+    "examples_dir": "results/real_test/maskrcnn_resnet101_fpn_real_20260106_2133/examples"
+}
