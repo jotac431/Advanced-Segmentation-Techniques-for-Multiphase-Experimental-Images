@@ -21,8 +21,8 @@
         "num_empty_both": 0
     },
     "timing": {
-        "avg_infer_time": 0.1651817512512207,
-        "fps": 6.0539375108036335
+        "avg_infer_time": 0.23860733032226564,
+        "fps": 4.190986080140075
     },
     "config_used": {
         "score_thresh": 0.5,

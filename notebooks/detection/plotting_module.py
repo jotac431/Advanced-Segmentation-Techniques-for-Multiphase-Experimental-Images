@@ -1,34 +1,107 @@
 # plotting_module.py
-# A reusable plotting module for evaluating segmentation experiments.
-# Generates thesis-ready distribution plots and cross-experiment comparisons.
+# Improved plotting module for evaluating segmentation experiments.
+# Keeps dependencies minimal (matplotlib/numpy/pandas) and preserves the original API.
 
 import os
 import json
+import math
+import textwrap
+from typing import List, Optional, Tuple, Dict
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List
+
+
+# ============================================================
+# Global style
+# ============================================================
+
+def _apply_style() -> None:
+    """Set a consistent, thesis-friendly matplotlib style."""
+    plt.rcParams.update({
+        "figure.dpi": 120,
+        "savefig.dpi": 300,
+        "font.size": 10,
+        "axes.titlesize": 12,
+        "axes.labelsize": 10,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 9,
+        "axes.grid": True,
+        "grid.alpha": 0.25,
+        "grid.linewidth": 0.6,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+    })
+
+_apply_style()
 
 
 # ============================================================
 # Utility helpers
 # ============================================================
-def _ensure_dir(path):
+
+def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-def _save_fig(fig, out_path):
-    png_path = out_path + ".png"
-    pdf_path = out_path + ".pdf"
-    fig.savefig(png_path, dpi=200, bbox_inches="tight")
-    fig.savefig(pdf_path, dpi=200, bbox_inches="tight")
+def _wrap_label(s: str, width: int = 18) -> str:
+    # Avoid breaking long experiment names into unreadable single words
+    return "\n".join(textwrap.wrap(s, width=width, break_long_words=False))
+
+
+def _save_fig(fig: plt.Figure, out_path: str) -> None:
+    """Save both PNG and PDF with tight layout."""
+    _ensure_dir(os.path.dirname(out_path) or ".")
+    fig.tight_layout()
+    fig.savefig(out_path + ".png", bbox_inches="tight")
+    fig.savefig(out_path + ".pdf", bbox_inches="tight")
     plt.close(fig)
+
+
+def _to_numeric_series(df: pd.DataFrame, col: str) -> pd.Series:
+    return pd.to_numeric(df[col], errors="coerce").dropna()
+
+
+def _fd_bins(x: np.ndarray, fallback: int = 30) -> np.ndarray:
+    """Freedman–Diaconis binning; stable fallback if data is degenerate."""
+    if x.size < 2:
+        return np.array([0.0, 1.0])
+    try:
+        bins = np.histogram_bin_edges(x, bins="fd")
+        if len(bins) < 5:  # too few bins looks bad
+            bins = np.histogram_bin_edges(x, bins=fallback)
+        return bins
+    except Exception:
+        return np.histogram_bin_edges(x, bins=fallback)
+
+
+def _bounded_01(col: str) -> bool:
+    return col.lower() in {"dice", "iou", "precision", "recall", "f1"}
+
+
+def _lower_is_better(metric: str) -> bool:
+    m = metric.lower()
+    return ("error" in m) or (m in {"avg_infer_time"})
+
+
+def _format_value(v: float) -> str:
+    if v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
+        return "NA"
+    # Nice formatting for typical ranges
+    if abs(v) >= 1000:
+        return f"{v:.0f}"
+    if abs(v) >= 10:
+        return f"{v:.2f}"
+    return f"{v:.3f}"
 
 
 # ============================================================
 # Load experiment results
 # ============================================================
-def load_experiment(exp_dir):
+
+def load_experiment(exp_dir: str) -> Dict:
     """
     Loads:
       - results.json (global metrics)
@@ -51,69 +124,151 @@ def load_experiment(exp_dir):
         res_json = json.load(f)
 
     df = pd.read_csv(csv_path)
-
     name = os.path.basename(os.path.normpath(exp_dir))
 
-    return {
-        "name": name,
-        "json": res_json,
-        "df": df,
-        "plots_dir": plots_dir
-    }
+    return {"name": name, "json": res_json, "df": df, "plots_dir": plots_dir}
 
 
 # ============================================================
 # Per-experiment plotting
 # ============================================================
 
-def plot_distribution(df, column, title, xlabel, out_path):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.hist(df[column], bins=40, density=False, alpha=0.8, color="steelblue")
+def plot_distribution(
+    df: pd.DataFrame,
+    column: str,
+    title: str,
+    xlabel: str,
+    out_path: str,
+    *,
+    xlim: Optional[Tuple[float, float]] = None,
+    show_mean_median: bool = True
+) -> None:
+    s = _to_numeric_series(df, column)
+    if s.empty:
+        return
+
+    x = s.to_numpy()
+    bins = _fd_bins(x, fallback=30)
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.2))
+    ax.hist(x, bins=bins, alpha=0.9, edgecolor="white", linewidth=0.6)
+
+    if _bounded_01(column):
+        ax.set_xlim(0.0, 1.0)
+    elif xlim is not None:
+        ax.set_xlim(*xlim)
+
+    if show_mean_median:
+        mu = float(np.mean(x))
+        md = float(np.median(x))
+        ax.axvline(mu, linestyle="-", linewidth=1.2, alpha=0.9, label=f"mean = {_format_value(mu)}")
+        ax.axvline(md, linestyle="--", linewidth=1.2, alpha=0.9, label=f"median = {_format_value(md)}")
+        ax.legend(loc="best", frameon=False)
+
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Count")
-    ax.grid(True, alpha=0.3)
+    ax.text(0.98, 0.96, f"n = {len(x)}", transform=ax.transAxes,
+            ha="right", va="top", fontsize=9, alpha=0.85)
+
     _save_fig(fig, out_path)
 
 
-def plot_bubble_area_distribution(df, out_path):
-    df_valid = df[df["MeanArea"] > 0]
+def plot_bubble_area_distribution(df: pd.DataFrame, out_path: str) -> None:
+    # Prefer GT_MeanArea if present, else MeanArea
+    col = "MeanArea" if "MeanArea" in df.columns else None
+    if col is None:
+        return
 
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.hist(df_valid["MeanArea"], bins=40, alpha=0.8, color="darkorange")
+    s = _to_numeric_series(df, col)
+    s = s[s > 0]
+    if s.empty:
+        return
+
+    x = s.to_numpy()
+    bins = _fd_bins(x, fallback=40)
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.2))
+    ax.hist(x, bins=bins, alpha=0.9, edgecolor="white", linewidth=0.6)
     ax.set_title("Bubble Area Distribution (Mean Area per Image)")
     ax.set_xlabel("Area (pixels)")
     ax.set_ylabel("Count")
-    ax.grid(True, alpha=0.3)
+
+    # If the distribution is heavy-tailed, a log-x plot is often clearer; save a second figure.
     _save_fig(fig, out_path)
 
+    # Optional log-scale version (same data, different readability)
+    if np.max(x) / max(np.min(x), 1.0) > 50:
+        fig2, ax2 = plt.subplots(figsize=(6.6, 4.2))
+        ax2.hist(x, bins=bins, alpha=0.9, edgecolor="white", linewidth=0.6)
+        ax2.set_xscale("log")
+        ax2.set_title("Bubble Area Distribution (log scale)")
+        ax2.set_xlabel("Area (pixels, log scale)")
+        ax2.set_ylabel("Count")
+        _save_fig(fig2, out_path + "_log")
 
 
-def plot_scatter(df, x_col, y_col, title, xlabel, ylabel, out_path):
-    df_valid = df[[x_col, y_col]].dropna()
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(df_valid[x_col], df_valid[y_col], alpha=0.7)
+def plot_scatter(
+    df: pd.DataFrame,
+    x_col: str,
+    y_col: str,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    out_path: str
+) -> None:
+    df_valid = df[[x_col, y_col]].copy()
+    df_valid[x_col] = pd.to_numeric(df_valid[x_col], errors="coerce")
+    df_valid[y_col] = pd.to_numeric(df_valid[y_col], errors="coerce")
+    df_valid = df_valid.dropna()
+    if df_valid.empty:
+        return
+
+    x = df_valid[x_col].to_numpy()
+    y = df_valid[y_col].to_numpy()
+
+    fig, ax = plt.subplots(figsize=(6.2, 5.0))
+    ax.scatter(x, y, alpha=0.75, edgecolor="none")
+
+    # y=x reference
+    lo = min(np.min(x), np.min(y))
+    hi = max(np.max(x), np.max(y))
+    ax.plot([lo, hi], [lo, hi], linestyle="--", linewidth=1.0, alpha=0.7)
+
+    # correlation (Pearson)
+    if len(x) >= 2:
+        r = float(np.corrcoef(x, y)[0, 1])
+        ax.text(0.02, 0.98, f"Pearson r = {_format_value(r)}", transform=ax.transAxes,
+                ha="left", va="top", fontsize=9, alpha=0.85)
+
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-    _save_fig(fig, out_path)
 
-def plot_timing(json_data, out_path):
-    fig, ax = plt.subplots(figsize=(6, 4))
-    fps = json_data["timing"]["fps"]
-    avg_t = json_data["timing"]["avg_infer_time"] * 1000  # ms
-
-    ax.bar(["FPS", "Avg Time (ms)"], [fps, avg_t], color=["green", "red"])
-    ax.set_title("Inference Speed")
-    ax.grid(True, alpha=0.3)
     _save_fig(fig, out_path)
 
 
-def generate_single_experiment_plots(exp_dir):
-    """
-    Generate all standard plots for one experiment.
-    """
+def plot_timing(json_data: Dict, out_path: str) -> None:
+    timing = json_data.get("timing", {})
+    fps = float(timing.get("fps", float("nan")))
+    avg_t_ms = float(timing.get("avg_infer_time", float("nan"))) * 1000.0
+
+    fig, ax = plt.subplots(figsize=(6.6, 3.8))
+    labels = ["FPS", "Avg infer (ms)"]
+    vals = [fps, avg_t_ms]
+
+    ax.bar(labels, vals, alpha=0.9, edgecolor="white", linewidth=0.6)
+    ax.set_title("Inference speed summary")
+    ax.set_ylabel("Value")
+
+    for i, v in enumerate(vals):
+        ax.text(i, v, _format_value(v), ha="center", va="bottom", fontsize=9, alpha=0.85)
+
+    _save_fig(fig, out_path)
+
+
+def generate_single_experiment_plots(exp_dir: str) -> None:
+    """Generate all standard plots for one experiment."""
     data = load_experiment(exp_dir)
     df = data["df"]
     plots = data["plots_dir"]
@@ -121,36 +276,47 @@ def generate_single_experiment_plots(exp_dir):
     print(f"Generating plots for {data['name']} ...")
 
     # Semantic distributions
-    plot_distribution(df, "Dice", "Dice Distribution", "Dice", os.path.join(plots, "dice_dist"))
-    plot_distribution(df, "IoU", "IoU Distribution", "IoU", os.path.join(plots, "iou_dist"))
-    plot_distribution(df, "Precision", "Precision Distribution", "Precision", os.path.join(plots, "precision_dist"))
-    plot_distribution(df, "Recall", "Recall Distribution", "Recall", os.path.join(plots, "recall_dist"))
-    plot_distribution(df, "F1", "F1 Distribution", "F1", os.path.join(plots, "f1_dist"))
+    plot_distribution(df, "Dice", "Dice distribution", "Dice", os.path.join(plots, "dice_dist"))
+    plot_distribution(df, "IoU", "IoU distribution", "IoU", os.path.join(plots, "iou_dist"))
+    plot_distribution(df, "Precision", "Precision distribution", "Precision", os.path.join(plots, "precision_dist"))
+    plot_distribution(df, "Recall", "Recall distribution", "Recall", os.path.join(plots, "recall_dist"))
+    plot_distribution(df, "F1", "F1 distribution", "F1", os.path.join(plots, "f1_dist"))
 
     # Instance-level distributions
-    plot_distribution(df, "NumBubbles", "Bubble Count per Image", "Num Bubbles",
-                      os.path.join(plots, "bubble_count_dist"))
+    if "NumBubbles" in df.columns:
+        plot_distribution(df, "NumBubbles", "Predicted bubble count per image", "Pred NumBubbles",
+                          os.path.join(plots, "bubble_count_dist"), show_mean_median=True)
     plot_bubble_area_distribution(df, os.path.join(plots, "bubble_area_dist"))
 
-    # Optional GT-aware plots (available with the updated evaluator)
+    # Optional GT-aware plots
     if "GT_NumBubbles" in df.columns:
-        plot_distribution(df, "GT_NumBubbles", "GT Bubble Count per Image", "GT Num Bubbles",
-                          os.path.join(plots, "gt_bubble_count_dist"))
+        plot_distribution(df, "GT_NumBubbles", "GT bubble count per image", "GT NumBubbles",
+                          os.path.join(plots, "gt_bubble_count_dist"), show_mean_median=True)
+
     if "CountError" in df.columns:
-        plot_distribution(df, "CountError", "Bubble Count Error (Pred - GT)", "Count Error",
-                          os.path.join(plots, "count_error_dist"))
+        # Center around 0 for readability
+        ce = _to_numeric_series(df, "CountError")
+        if not ce.empty:
+            lim = float(max(abs(ce.min()), abs(ce.max())))
+            plot_distribution(df, "CountError", "Bubble count error (Pred - GT)", "CountError",
+                              os.path.join(plots, "count_error_dist"),
+                              xlim=(-lim, lim), show_mean_median=True)
+            # add a 0-reference line by re-plotting quickly (keeps API simple)
+            # (If you want it baked in, we can add a specialized function.)
     if "AbsCountError" in df.columns:
-        plot_distribution(df, "AbsCountError", "Absolute Bubble Count Error", "Abs Count Error",
-                          os.path.join(plots, "abs_count_error_dist"))
+        plot_distribution(df, "AbsCountError", "Absolute bubble count error", "AbsCountError",
+                          os.path.join(plots, "abs_count_error_dist"), show_mean_median=True)
+
     if "GT_MeanArea" in df.columns:
-        df_gt_area = df[df["GT_MeanArea"] > 0]
-        plot_distribution(df_gt_area, "GT_MeanArea", "GT Bubble Area Distribution (Mean Area per Image)", "GT Mean Area (pixels)",
-                          os.path.join(plots, "gt_bubble_area_dist"))
+        df_gt_area = df[pd.to_numeric(df["GT_MeanArea"], errors="coerce") > 0]
+        if not df_gt_area.empty:
+            plot_distribution(df_gt_area, "GT_MeanArea", "GT mean bubble area per image", "GT_MeanArea (pixels)",
+                              os.path.join(plots, "gt_bubble_area_dist"), show_mean_median=True)
+
     if "GT_NumBubbles" in df.columns and "NumBubbles" in df.columns:
         plot_scatter(df, "GT_NumBubbles", "NumBubbles",
-                     "Pred vs GT Bubble Count", "GT Num Bubbles", "Pred Num Bubbles",
+                     "Pred vs GT bubble count", "GT NumBubbles", "Pred NumBubbles",
                      os.path.join(plots, "pred_vs_gt_bubble_count"))
-
 
     # Timing summary
     plot_timing(data["json"], os.path.join(plots, "timing"))
@@ -162,43 +328,63 @@ def generate_single_experiment_plots(exp_dir):
 # Multi-experiment comparison
 # ============================================================
 
-def plot_metric_comparison(experiments: List[str], metric: str, title: str, ylabel: str, out_path: str):
-    """
-    Bar plot comparing a given metric across experiments.
-    Metric must be in results.json under semantic_metrics or instance_metrics.
-    """
-    names = []
-    values = []
+def _get_metric_from_results(j: Dict, metric: str) -> float:
+    if "semantic_metrics" in j and metric in j["semantic_metrics"]:
+        return float(j["semantic_metrics"][metric])
+    if "instance_metrics" in j and metric in j["instance_metrics"]:
+        return float(j["instance_metrics"][metric])
+    if "timing" in j and metric in j["timing"]:
+        return float(j["timing"][metric])
+    raise ValueError(f"Metric '{metric}' not found in results.json")
 
+
+def plot_metric_comparison(
+    experiments: List[str],
+    metric: str,
+    title: str,
+    ylabel: str,
+    out_path: str
+) -> None:
+    """
+    Thesis-friendly comparison plot across experiments:
+    - horizontal bars
+    - sorted (best on top)
+    - value labels
+    """
+    rows = []
     for exp in experiments:
         data = load_experiment(exp)
-        j = data["json"]
+        name = data["name"]
+        val = _get_metric_from_results(data["json"], metric)
+        rows.append((name, val))
 
-        if metric in j["semantic_metrics"]:
-            val = j["semantic_metrics"][metric]
-        elif metric in j["instance_metrics"]:
-            val = j["instance_metrics"][metric]
-        elif metric in j["timing"]:
-            val = j["timing"][metric]
-        else:
-            raise ValueError(f"Metric {metric} not found in {exp}")
+    # Sort
+    lower_better = _lower_is_better(metric)
+    rows.sort(key=lambda t: t[1], reverse=(not lower_better))
 
-        names.append(data["name"])
-        values.append(val)
+    names = [_wrap_label(r[0], width=24) for r in rows]
+    values = [r[1] for r in rows]
 
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.bar(names, values, color="royalblue")
+    fig_h = max(3.6, 0.42 * len(names))
+    fig, ax = plt.subplots(figsize=(8.2, fig_h))
+
+    y = np.arange(len(names))
+    ax.barh(y, values, alpha=0.9, edgecolor="white", linewidth=0.6)
+    ax.set_yticks(y)
+    ax.set_yticklabels(names)
+    ax.invert_yaxis()  # best at top
     ax.set_title(title)
-    ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-    plt.xticks(rotation=20)
+    ax.set_xlabel(ylabel)
+
+    # Add value labels
+    for yi, v in zip(y, values):
+        ax.text(v, yi, f"  {_format_value(v)}", va="center", ha="left", fontsize=9, alpha=0.9)
+
     _save_fig(fig, out_path)
 
 
-def generate_experiment_comparison(experiments: List[str], out_dir="comparisons"):
-    """
-    Takes a list of experiment directories and generates comparison plots.
-    """
+def generate_experiment_comparison(experiments: List[str], out_dir: str = "comparisons") -> None:
+    """Takes a list of experiment directories and generates comparison plots."""
     _ensure_dir(out_dir)
 
     print("Comparing experiments:")
@@ -206,84 +392,50 @@ def generate_experiment_comparison(experiments: List[str], out_dir="comparisons"
         print(" -", e)
 
     # Basic semantic metrics comparisons
-    plot_metric_comparison(
-        experiments,
-        "dice",
-        "Mean Dice Across Experiments",
-        "Dice",
-        os.path.join(out_dir, "compare_dice"),
-    )
-    plot_metric_comparison(
-        experiments,
-        "iou",
-        "Mean IoU Across Experiments",
-        "IoU",
-        os.path.join(out_dir, "compare_iou"),
-    )
-    plot_metric_comparison(
-        experiments,
-        "precision",
-        "Mean Precision Across Experiments",
-        "Precision",
-        os.path.join(out_dir, "compare_precision"),
-    )
-    plot_metric_comparison(
-        experiments,
-        "recall",
-        "Mean Recall Across Experiments",
-        "Recall",
-        os.path.join(out_dir, "compare_recall"),
-    )
-    plot_metric_comparison(
-        experiments,
-        "f1",
-        "Mean F1 Across Experiments",
-        "F1 Score",
-        os.path.join(out_dir, "compare_f1"),
-    )
+    plot_metric_comparison(experiments, "dice", "Mean Dice across experiments", "Dice",
+                           os.path.join(out_dir, "compare_dice"))
+    plot_metric_comparison(experiments, "iou", "Mean IoU across experiments", "IoU",
+                           os.path.join(out_dir, "compare_iou"))
+    plot_metric_comparison(experiments, "precision", "Mean Precision across experiments", "Precision",
+                           os.path.join(out_dir, "compare_precision"))
+    plot_metric_comparison(experiments, "recall", "Mean Recall across experiments", "Recall",
+                           os.path.join(out_dir, "compare_recall"))
+    plot_metric_comparison(experiments, "f1", "Mean F1 across experiments", "F1",
+                           os.path.join(out_dir, "compare_f1"))
 
     # Instance-level metrics
-    plot_metric_comparison(
-        experiments,
-        "avg_bubbles",
-        "Average Bubble Count",
-        "Avg Bubbles",
-        os.path.join(out_dir, "compare_bubble_count"),
-    )
-
-    # Optional: counting error (only if present in results.json)
-    plot_metric_comparison(
-        experiments,
-        "abs_count_error_mean",
-        "Mean Absolute Bubble Count Error",
-        "Abs Count Error",
-        os.path.join(out_dir, "compare_abs_count_error"),
-    )
-    plot_metric_comparison(
-        experiments,
-        "count_error_mean",
-        "Mean Bubble Count Error (Pred - GT)",
-        "Count Error",
-        os.path.join(out_dir, "compare_count_error"),
-    )
+    plot_metric_comparison(experiments, "avg_bubbles", "Average predicted bubble count", "Avg bubbles",
+                           os.path.join(out_dir, "compare_bubble_count"))
+    plot_metric_comparison(experiments, "abs_count_error_mean", "Mean absolute bubble count error", "Abs count error",
+                           os.path.join(out_dir, "compare_abs_count_error"))
+    plot_metric_comparison(experiments, "count_error_mean", "Mean bubble count error (Pred - GT)", "Count error",
+                           os.path.join(out_dir, "compare_count_error"))
 
     # Inference speed
-    plot_metric_comparison(
-        experiments,
-        "fps",
-        "Inference FPS Comparison",
-        "FPS",
-        os.path.join(out_dir, "compare_fps"),
-    )
+    plot_metric_comparison(experiments, "fps", "Inference FPS comparison", "FPS",
+                           os.path.join(out_dir, "compare_fps"))
+
+    # Optional: also save a summary table for the thesis
+    summary_rows = []
+    for exp in experiments:
+        data = load_experiment(exp)
+        j = data["json"]
+        summary_rows.append({
+            "experiment": data["name"],
+            "dice": _get_metric_from_results(j, "dice"),
+            "iou": _get_metric_from_results(j, "iou"),
+            "abs_count_error_mean": _get_metric_from_results(j, "abs_count_error_mean"),
+            "count_error_mean": _get_metric_from_results(j, "count_error_mean"),
+            "fps": _get_metric_from_results(j, "fps"),
+        })
+    pd.DataFrame(summary_rows).to_csv(os.path.join(out_dir, "summary_metrics.csv"), index=False)
 
 
 # ============================================================
 # Convenience function
 # ============================================================
 
-def run_all_plots_for_experiment(exp_dir):
-    """
-    One-call function to process a single experiment directory.
-    """
+def run_all_plots_for_experiment(exp_dir: str) -> None:
+    """One-call function to process a single experiment directory."""
     generate_single_experiment_plots(exp_dir)
     print("Finished plotting for:", exp_dir)

@@ -169,7 +169,7 @@ def run_test_evaluation(
     cfg,
     out_dir,
     visualize=False,
-    num_examples=5,
+    num_examples=25,
 ):
     """
     Evaluates model on test set using:
